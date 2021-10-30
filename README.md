@@ -1,5 +1,5 @@
 # RateLimiterKotlinApplication
-This a sample application which is built to test rate limiting using Bucket4J.
+This a sample application which is built to test rate limiting using Bucket4J. This uses hazelcast to achieve distributed solution for a multi clustered application.
 
 ###
 Required
