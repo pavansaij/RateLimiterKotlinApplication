@@ -1,36 +1,33 @@
 package SamplePackage.Filters
 
-import io.github.bucket4j.Bandwidth
-import io.github.bucket4j.Bucket
-import io.github.bucket4j.Bucket4j
+import SamplePackage.RateLimitBucketManager.BucketManager
 
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.HttpStatus
+import org.springframework.stereotype.Component
+import java.util.concurrent.TimeUnit
 
-import java.time.Duration
 import javax.servlet.*
 import javax.servlet.http.HttpServletResponse
 
 @Component
 class RateLimitingFilter : Filter {
 
-    lateinit var rateLimitingBucket : Bucket
-
-    private fun createIpRateLimitBucket(): Bucket {
-        val limit = Bandwidth.simple(2, Duration.ofMinutes(1))
-        return Bucket4j.builder().addLimit(limit).build()
-    }
-
-    override fun init(filterConfig: FilterConfig) {
-        rateLimitingBucket = createIpRateLimitBucket()
-    }
+    @Autowired
+    lateinit var bucketManager: BucketManager
 
     override fun doFilter(request: ServletRequest?, response: ServletResponse?, chain: FilterChain?) {
-        if (this.rateLimitingBucket.tryConsume(1)) {
+        var consumptionProbe = this.bucketManager.getBucket().tryConsumeAndReturnRemaining(1)
+        val resp = response as HttpServletResponse
+
+        if (consumptionProbe.isConsumed) {
+            resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
             return chain!!.doFilter(request, response)
         }
 
-        val resp = response as HttpServletResponse
-        resp.status = 429
+        resp.status = HttpStatus.TOO_MANY_REQUESTS.value()
+        resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
+        resp.addHeader("X-Rate-Limit-Retry-After-Millisecs", TimeUnit.NANOSECONDS.toMillis(consumptionProbe.nanosToWaitForRefill).toString())
         resp.writer.write("Too many requests")
     }
 }

@@ -2,7 +2,7 @@ package SamplePackage.Models
 
 import java.lang.IllegalArgumentException
 
-enum class Days() {
+enum class Days {
     monday, tuesday, wednesday, thursday, friday, saturday, sunday;
 
     companion object {
