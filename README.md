@@ -12,3 +12,11 @@ Good to have
 - Concurrent RateLimiting
 - Queue the throttled requests
 - Multiple Rate-Limiting Algorithms
+
+###
+Hazel-Cast Docker run command
+
+docker run -it --network hazelcast-network --rm -e HZ_CLUSTERNAME=rate-limiter -p 5701:5701 hazelcast/hazelcast:4.2.2
+
+docker run --name rate-limiter -d -e JAVA_OPTS="-Dhazelcast.config=/opt/hazelcast/hazelcast.xml -Dhazelcast.ip=`ip route get 8.8.8.8 | awk '{print $NF; exit}'` -Dhazelcast.port=5701" -ti fsamir/hazelcast-bucket4j:3.9.2
+

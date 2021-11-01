@@ -14,7 +14,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ApplicationTest(@Autowired private val restTemplate: TestRestTemplate) {
 
-    companion object {
+    private companion object {
         const val SLEEP_SEC_URL = "/sleepSecs?delaySecs=%d"
         const val UPDATE_CAPACITY = "/bucketManger/updateCapacity?capacity=%d"
     }

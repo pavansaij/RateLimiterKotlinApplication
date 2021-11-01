@@ -17,7 +17,7 @@ import java.time.Duration
 class BucketManager(capacity: Int = 2) {
     private val hazelCastInstance = createHazelCastInstance()
 
-    private var bucket = createBucketWithCapacity(capacity)
+    private var bucket = createHazelCastBucket(capacity)
 
     private fun createHazelCastInstance(): HazelcastInstance {
         val clientConfig = ClientConfig()

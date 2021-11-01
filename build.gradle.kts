@@ -27,6 +27,7 @@ repositories {
 }
 
 dependencies {
+	implementation("junit:junit:4.13.1")
 	compile("org.springframework.boot:spring-boot-starter-web")
 	compile("org.springframework.boot:spring-boot-starter-data-jpa")
 	compile("com.h2database:h2")
@@ -34,10 +35,11 @@ dependencies {
 	compile("org.jetbrains.kotlin:kotlin-reflect")
 	compile("com.fasterxml.jackson.module:jackson-module-kotlin")
 	compile("com.google.code.gson:gson")
-	implementation("com.hazelcast:hazelcast:4.2.2")
+	implementation("com.hazelcast:hazelcast:5.0")
 	implementation("com.github.vladimir-bukhtoyarov:bucket4j-core:6.3.0")
 	implementation("com.github.vladimir-bukhtoyarov:bucket4j-hazelcast:6.3.0")
-	implementation("javax.cache:cache-api:1.0.0")
+	implementation("com.github.vladimir-bukhtoyarov:bucket4j-jcache:6.3.0")
+	implementation("javax.cache:cache-api:1.1.0")
 	testCompile("org.springframework.boot:spring-boot-starter-test") {
 		exclude(module = "junit")
 	}
