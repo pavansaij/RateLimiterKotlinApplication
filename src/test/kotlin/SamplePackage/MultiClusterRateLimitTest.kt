@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Assertions
 import org.junit.runner.RunWith
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestTemplate
 
 
@@ -19,39 +21,36 @@ class MultiClusterRateLimitTest {
         const val UPDATE_CAPACITY = "/bucketManger/updateCapacity?capacity=%d"
     }
 
-    @Before
-    fun bringUpApplications() {
-        val sampleApp1 = SpringApplicationBuilder(Application::class.java)
-            .properties(
-                "server.port=8081",
-                "server.contextPath=/UserService",
-                "SOA.ControllerFactory.enforceProxyCreation=true"
+    private fun performGetCall(url: String) : Int{
+        return try {
+            var response = restTemplate.exchange(
+                url,
+                HttpMethod.GET, null, kotlin.String::class.java
             )
-        sampleApp1.run()
 
-        val sampleApp2 = SpringApplicationBuilder(Application::class.java)
-            .properties(
-                "server.port=8082",
-                "server.contextPath=/ProjectService",
-                "SOA.ControllerFactory.enforceProxyCreation=true"
-            )
-        sampleApp2.run()
+            response.statusCode.value()
+        } catch (e: HttpClientErrorException.TooManyRequests) {
+            HttpStatus.TOO_MANY_REQUESTS.value()
+        }
     }
 
     @Test
     fun testSleepSecsRateLimiting() {
-        for (i in 1..4) {
-            val response = restTemplate.exchange(
-                String.format(MultiClusterRateLimitTest.SLEEP_SEC_URL, 1),
-                HttpMethod.GET, null, String::class.java
-            )
+        for (i in 1..2) {
+            var url1 = String.format("http://localhost:8081"+MultiClusterRateLimitTest.SLEEP_SEC_URL, 1)
+            var resp1 = performGetCall(url1)
 
-            if (i == 4) {
-                Assertions.assertTrue(response.statusCode.value() == 429)
+            Assertions.assertTrue(resp1 == 200)
+
+            var url2 = String.format("http://localhost:8082"+MultiClusterRateLimitTest.SLEEP_SEC_URL, 1)
+            var resp2 = performGetCall(url2)
+
+            if (i == 2) {
+                Assertions.assertTrue(resp2 == 429)
                 continue
             }
 
-            Assertions.assertTrue(response.statusCode.value() == 200)
+            Assertions.assertTrue(resp2 == 200)
         }
     }
 }

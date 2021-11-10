@@ -1,13 +1,16 @@
 package SamplePackage.Filters
 
 import SamplePackage.RateLimitBucketManager.BucketManager
-
+import io.github.bucket4j.ConsumptionProbe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
-
-import javax.servlet.*
+import javax.servlet.Filter
+import javax.servlet.FilterChain
+import javax.servlet.ServletRequest
+import javax.servlet.ServletResponse
+import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
 @Component
@@ -17,11 +20,24 @@ class RateLimitingFilter : Filter {
     lateinit var bucketManager: BucketManager
 
     override fun doFilter(request: ServletRequest?, response: ServletResponse?, chain: FilterChain?) {
-        var consumptionProbe = this.bucketManager.getBucket().tryConsumeAndReturnRemaining(1)
+
+        val path = (request as HttpServletRequest).requestURI
+
+        if (!path.startsWith("/sleepSecs")) {
+            return chain!!.doFilter(request, response)
+        }
+
+        var asyncConsumptionProbe = this.bucketManager.getBucket().asAsync().tryConsumeAndReturnRemaining(1)
+
+        if (asyncConsumptionProbe.isCompletedExceptionally) {
+            return chain!!.doFilter(request, response)
+        }
+
+        var consumptionProbe = asyncConsumptionProbe.get()
         val resp = response as HttpServletResponse
 
         if (consumptionProbe.isConsumed) {
-            resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
+            //resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
             return chain!!.doFilter(request, response)
         }
 

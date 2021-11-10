@@ -1,5 +1,6 @@
 package SamplePackage
 
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -37,17 +38,39 @@ class ApplicationTest(@Autowired private val restTemplate: TestRestTemplate) {
     }
 
     @Test
-    fun testRateLimitingDynamicRateIncrease() {
-        for (i in 1..3) {
-            if (i == 2) {
-                val bucketUpdateResp = restTemplate.exchange(String.format(UPDATE_CAPACITY, 6),
+    fun testRateLimitingDynamicRateDecrease() {
+        for (i in 1..4) {
+            if (i == 1) {
+                val bucketUpdateResp = restTemplate.exchange(String.format(UPDATE_CAPACITY, 2),
                     HttpMethod.GET, null, String::class.java)
-                println(bucketUpdateResp.body)
-                assertEquals( "2", bucketUpdateResp.body)
+                Assertions.assertEquals("1", bucketUpdateResp.body)
             }
 
             val response = restTemplate.exchange(String.format(SLEEP_SEC_URL, 1),
                 HttpMethod.GET, null, String::class.java)
+        }
+    }
+
+    @Test
+    fun testRateLimitingDynamicRateIncrease() {
+        var consumed = 0
+        val configuredLimit = 3
+        val newLimit = 6
+
+        for (i in 1..4) {
+            if (i == 3) {
+                val bucketUpdateResp = restTemplate.exchange(String.format(UPDATE_CAPACITY, newLimit),
+                    HttpMethod.GET, null, String::class.java)
+
+                val expectedNewLimit = (newLimit/configuredLimit)*(configuredLimit-consumed)
+
+                assertEquals( expectedNewLimit.toString(), bucketUpdateResp.body)
+            }
+
+            val response = restTemplate.exchange(String.format(SLEEP_SEC_URL, 1),
+                HttpMethod.GET, null, String::class.java)
+
+            consumed++
 
             assertTrue(response.statusCode.value() == 200)
         }

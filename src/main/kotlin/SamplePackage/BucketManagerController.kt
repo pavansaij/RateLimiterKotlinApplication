@@ -1,6 +1,7 @@
 package SamplePackage
 
 import SamplePackage.RateLimitBucketManager.BucketManager
+import io.github.bucket4j.Bucket
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.RequestMapping
@@ -17,12 +18,12 @@ class BucketManagerController {
         consumes = [MediaType.ALL_VALUE])
     fun updateCapacity(@RequestParam("capacity") capacity: Int) : Int{
         bucketManager.resetBucket(capacity)
-        return bucketManager.getBucket().availableTokens.toInt()
+        return (bucketManager.getBucket() as Bucket).availableTokens.toInt()
     }
 
     @RequestMapping(value = ["bucketManger/getAvailableCapacity"], headers = ["Accept=application/json"], method = [RequestMethod.GET],
         consumes = [MediaType.ALL_VALUE])
     fun getAvailableCapacity() : Int{
-        return bucketManager.getBucket().availableTokens.toInt()
+        return (bucketManager.getBucket() as Bucket).availableTokens.toInt()
     }
 }
