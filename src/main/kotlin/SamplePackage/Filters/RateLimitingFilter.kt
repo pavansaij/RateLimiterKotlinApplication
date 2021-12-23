@@ -27,23 +27,27 @@ class RateLimitingFilter : Filter {
             return chain!!.doFilter(request, response)
         }
 
-        var asyncConsumptionProbe = this.bucketManager.getBucket().asAsync().tryConsumeAndReturnRemaining(1)
+        var asyncConsumptionProbe = this.bucketManager.getBucket()?.tryConsumeAndReturnRemaining(1)
 
-        if (asyncConsumptionProbe.isCompletedExceptionally) {
+        if (asyncConsumptionProbe != null && asyncConsumptionProbe.isCompletedExceptionally) {
             return chain!!.doFilter(request, response)
         }
 
-        var consumptionProbe = asyncConsumptionProbe.get()
+        var consumptionProbe = asyncConsumptionProbe?.get()
         val resp = response as HttpServletResponse
 
-        if (consumptionProbe.isConsumed) {
+        if (consumptionProbe != null && consumptionProbe.isConsumed) {
             //resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
             return chain!!.doFilter(request, response)
         }
 
         resp.status = HttpStatus.TOO_MANY_REQUESTS.value()
-        resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
-        resp.addHeader("X-Rate-Limit-Retry-After-Millisecs", TimeUnit.NANOSECONDS.toMillis(consumptionProbe.nanosToWaitForRefill).toString())
+
+        if (consumptionProbe != null) {
+            resp.addHeader("X-Rate-Limit-Remaining", consumptionProbe.remainingTokens.toString())
+            resp.addHeader("X-Rate-Limit-Retry-After-Millisecs", TimeUnit.NANOSECONDS.toMillis(consumptionProbe.nanosToWaitForRefill).toString())
+        }
+
         resp.writer.write("Too many requests")
     }
 }

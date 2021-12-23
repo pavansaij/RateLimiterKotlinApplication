@@ -3,13 +3,17 @@ package SamplePackage.RateLimitBucketManager
 import com.hazelcast.client.HazelcastClient
 import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.client.config.ClientConnectionStrategyConfig
+import com.hazelcast.client.config.ClientNetworkConfig
+import com.hazelcast.config.Config
+import com.hazelcast.config.SerializationConfig
+import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.internal.util.IterableUtil.limit
 import com.hazelcast.map.IMap
 import io.github.bucket4j.*
-import io.github.bucket4j.grid.GridBucketState
-import io.github.bucket4j.grid.RecoveryStrategy
-import io.github.bucket4j.grid.hazelcast.Hazelcast
+import io.github.bucket4j.distributed.AsyncBucketProxy
+import io.github.bucket4j.distributed.proxy.ClientSideConfig
+import io.github.bucket4j.distributed.proxy.optimization.Optimizations
+import io.github.bucket4j.grid.hazelcast.HazelcastProxyManager
 import java.time.Duration
 
 
@@ -19,31 +23,57 @@ class BucketManager(capacity: Int = 2) {
 
     private var bucket = createHazelCastBucket(capacity)
 
+    var sampleMap = createHazelCastMap()
+
     private fun createHazelCastInstance(): HazelcastInstance {
+        val configDev = Config()
+        configDev.clusterName = "development"
+
+        return Hazelcast.newHazelcastInstance(configDev)
+    }
+
+    private fun createHazelCastInstanceFromUrl(): HazelcastInstance {
+        var networkConfig = ClientNetworkConfig()
+        networkConfig.addresses = listOf("prasadj-dev-aps1.workspaces.corp.win.ia55.net:5701")
+
+        val config = Config()
+        val serializationConfig: SerializationConfig = config.serializationConfig
+        HazelcastProxyManager.addCustomSerializers(serializationConfig, 1000)
+
         var clientConfig = ClientConfig()
-        clientConfig.clusterName = "rate-limiter"
         clientConfig.connectionStrategyConfig.reconnectMode = ClientConnectionStrategyConfig.ReconnectMode.ASYNC
+        clientConfig.networkConfig = networkConfig
 
         return HazelcastClient.newHazelcastClient(clientConfig)
     }
 
-    private fun createHazelCastBucket(capacity: Int): Bucket {
-        val map: IMap<String, GridBucketState> = this.hazelCastInstance.getMap("bucket-map")
-
-        val limit = Bandwidth.classic(capacity.toLong(), Refill.intervally(1, Duration.ofSeconds(20)))
-        return Bucket4j.extension(Hazelcast::class.java).builder().addLimit(limit)
-            .build(map, "rate-limit", RecoveryStrategy.RECONSTRUCT)
+    private fun createHazelCastMap(): IMap<String, Int> {
+        return hazelCastInstance.getMap("sample")
     }
 
-    fun getBucket(): Bucket {
+    private fun createHazelCastBucket(capacity: Int): AsyncBucketProxy? {
+        val map: IMap<String, ByteArray> = this.hazelCastInstance.getMap("bucket-map")
+
+        val proxyManager: HazelcastProxyManager<String> = HazelcastProxyManager(map, ClientSideConfig.getDefault())
+
+        val configuration = BucketConfiguration.builder()
+            .addLimit(Bandwidth.classic(capacity.toLong(), Refill.intervally(1, Duration.ofSeconds(20))))
+            .build()
+
+        return proxyManager.asAsync().builder()
+            .withOptimization(Optimizations.batching())
+            .build("rate-limit", configuration)
+    }
+
+    fun getBucket(): AsyncBucketProxy? {
         return this.bucket
     }
 
     fun resetBucket(capacity: Int) {
-        val newConfiguration = Bucket4j.configurationBuilder()
+        val newConfiguration = BucketConfiguration.builder()
             .addLimit(Bandwidth.classic(capacity.toLong(), Refill.intervally(2, Duration.ofSeconds(20))))
             .build()
-        this.bucket.replaceConfiguration(newConfiguration, TokensInheritanceStrategy.PROPORTIONALLY)
+        this.bucket?.replaceConfiguration(newConfiguration, TokensInheritanceStrategy.PROPORTIONALLY)
     }
 
     companion object {
